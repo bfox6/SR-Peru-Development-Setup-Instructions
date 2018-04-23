@@ -1,0 +1,176 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+\usepackage{listings}
+
+\title{SR Peru Development Setup Instructions}
+\author{ Jared Olson and Brett Fox }
+\date{April 2018}
+
+\begin{document}
+
+\maketitle
+
+\newpage
+\tableofcontents
+\newpage
+
+\section{Install Necessary Packages}
+\subsection{Mac}
+\textbf{Install Homebrew:}
+\begin{verbatim}
+    $ /usr/bin/ruby -e "$(curl -fsSL 
+    https://raw.githubusercontent.com/Homebrew/install/master/install)"
+\end{verbatim}
+\textbf{Update Homebrew:}
+\begin{verbatim}
+    $ brew update
+\end{verbatim}
+\textbf{Install Packages:}
+\begin{verbatim}
+    $ brew install python2.7
+    $ brew install postgresql
+    $ brew install postgis
+\end{verbatim}
+
+\subsection{Ubuntu}
+\textbf{Install Packages:}
+\begin{verbatim}
+    $ apt-get install python2.7
+    $ apt-get install postgresql
+    $ apt-get install postgis
+    $ apt-get install python-pip
+\end{verbatim}
+
+\section{Virtual Environment}
+\textbf{Download and set up virtualenv and virtualenvwrapper}
+\begin{verbatim}
+    $ pip install virtualenv
+    $ pip install virtualenvwrapper
+\end{verbatim}
+Make a directory to store your virtual environments:
+\begin{verbatim}
+    $ mkdir /opt/venv
+\end{verbatim}
+Edit your .bashrc file by opening it using:
+\begin{verbatim}
+    $ vi ~/.bashrc
+\end{verbatim}
+Add the following lines to the file (don't forget to save before exiting):
+\begin{verbatim}
+    # Set the virtualenv directory
+    export WORKON_HOME=/opt/venv
+    
+    # Tell VirtualEnvWrapper where Python is located
+    VIRTUALENVWRAPPER_PYTHON='/usr/bin/python'
+    
+    # Load the virtualenvwrapper script
+    source /usr/local/bin/virtualenvwrapper.sh
+\end{verbatim}
+Source your .bashrc file:
+\begin{verbatim}
+    $ source ~/.bashrc
+\end{verbatim}
+\textbf{Make virtualenv:}
+\\Make sure you are using python2.7 in your virtual environment.
+\begin{verbatim}
+    $ mkvirtualenv sr_peru
+\end{verbatim}
+\textbf{Set your Django settings module in your virtualenv:}
+\\Open the postactivate file using (you may need to be root):
+\begin{verbatim}
+    $ vi ~/your_path/sr_peru/bin/postactivate/
+\end{verbatim}
+Add the following to the open file (don't forget to save before exiting):
+\begin{verbatim}
+    export DJANGO_SETTINGS_MODULE='sr_peru.settings.development'
+\end{verbatim}
+Open the postdeactivate file using (you may need to be root):
+\begin{verbatim}
+    $ vi ~/your_path/sr_peru/bin/postdeactivate/
+\end{verbatim}
+Add the following to the open file (don't forget to save before exiting):
+\begin{verbatim}
+    unset DJANGO_SETTINGS_MODULE
+\end{verbatim}
+Deactivate the virtualenv for changes to take affect and activate again:
+\begin{verbatim}
+    $ deactivate
+    $ workon sr_peru
+\end{verbatim}
+
+\section{Setup The Project}
+Navigate to your where you want your project to reside and clone the repository:
+\begin{verbatim}
+    $ git clone https://github.com/crcresearch/sr_peru.git
+\end{verbatim}
+Install PIP packages:
+\begin{verbatim}
+    $ pip install -r sr_peru/sr_peru/requirements/development.txt
+\end{verbatim}
+\section{Create A New Database}
+Open psql:
+\begin{verbatim}
+    $ sudo su
+    $ su postgres
+    $ psql postgres
+\end{verbatim}
+Run the following commands while in psql:
+\begin{verbatim}
+    # CREATE ROLE django WITH CREATEDB LOGIN;
+    # CREATE DATABASE iquitos WITH owner django;
+    # \c iquitos
+    # CREATE EXTENSION postgis;
+    # \q
+\end{verbatim}
+At this point you will need a dump of the GIS schema.  For security reasons, one is not provided so if you do not have access to the database to get a dump yourself then contact the team at UCDavis. When you have the database dump navigate to the folder that contains it and run (you will get a lot of errors about roles not existing and that is okay):
+\begin{verbatim}
+    $ psql -d iquitos -f gis.sql
+\end{verbatim}
+Connect to the iquitos database:
+\begin{verbatim}
+    $ psql iquitos
+\end{verbatim}
+Once connected run the following commands:
+\begin{verbatim}
+    # GRANT USAGE ON SCHEMA gis TO django;
+    # GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA gis TO django;
+    # ALTER ROLE django SET search_path TO public, gis;
+    # \q
+\end{verbatim}
+\section{Create A local.py Settings File}
+Get a secret key that we will put into our local settings file. Open Python and run the following command. Copy the output.
+\begin{verbatim}
+    >>> import random
+    >>> ''.join(random.SystemRandom().choice('abcdefghijklmnopqrstuvwxyz0123
+    456789!@#$%^&*(-_=+)') for i in range(50))
+\end{verbatim}
+Now create a local settings file using:
+\begin{verbatim}
+    $ vi /your_path/sr_peru/sr_peru/settings/local.py
+\end{verbatim}
+Add the following to the new file:
+\begin{verbatim}
+    # SECURITY WARNING: keep the secret key used in production secret!
+    SECRET_KEY = 'secret_key'
+    
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql_psycopg2',
+            'NAME': 'iquitos',
+            'USER': 'django',
+            'PASSWORD': 'password',
+            'HOST': '127.0.0.1',
+            'PORT': '5432',
+        }
+    }
+
+    DEFAULT_PASSWORD = 'kikiriki'
+\end{verbatim}
+Navigate to the project root directory and run the following commands:
+\begin{verbatim}
+    $ python manage.py migrate
+    $ python manage.py load_fixtures
+    $ python manage.py compilemessages
+\end{verbatim}
+\end{document}
